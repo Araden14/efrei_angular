@@ -8,17 +8,21 @@ export class AuthService {
   private users = signal<User[]>([
     {
       id: 1,
+      name: 'michel',
       email: 'admin@example.com',
       password: 'admin123', // En production, ce serait hashé
       role: 'admin',
       createdAt: new Date('2024-01-01'),
+      token: this.generateToken(),
     },
     {
       id: 2,
+      name: 'samuel',
       email: 'user@example.com',
       password: 'user123',
       role: 'user',
       createdAt: new Date('2024-01-02'),
+      token: this.generateToken(),
     },
   ]);
 
@@ -71,10 +75,12 @@ export class AuthService {
 
     const newUser: User = {
       id: Date.now(),
+      name: userData.name,
       email: userData.email,
       password: userData.password,
       role: 'user',
       createdAt: new Date(),
+      token: this.generateToken(),
     };
 
     this.users.update((users) => [...users, newUser]);
@@ -97,6 +103,10 @@ export class AuthService {
     return this.currentUser() !== null;
   }
 
+  deleteUser(id: number): void {
+    this.users.update((users) => users.filter((user) => user.id !== id));
+  }
+
   // GET - Récupérer l'utilisateur actuel
   getCurrentUser(): User | null {
     return this.currentUser();
@@ -106,6 +116,15 @@ export class AuthService {
   isAdmin(): boolean {
     return this.currentUser()?.role === 'admin';
   }
+
+  getToken(): string {
+    return this.currentUser()?.token ?? '';
+  }
+  generateToken(): string {
+    return Math.random().toString(36).substring(2, 15);
+  }
+
+  readonly currentUser$ = this.currentUser.asReadonly();
 
   // GET - Récupérer tous les utilisateurs (admin seulement)
   async getAllUsers(): Promise<User[]> {

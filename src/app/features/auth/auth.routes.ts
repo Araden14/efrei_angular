@@ -1,9 +1,20 @@
-// Auth Routes
+// src/app/features/auth/auth.routes.ts
 import { Routes } from '@angular/router';
+import { LoginComponent } from './components/login/login';
+import { RegisterComponent } from './components/register/register';
 
 export const authRoutes: Routes = [
   {
-    path: 'auth',
-    children: [{}],
+    path: 'login',
+    component: LoginComponent,
+  },
+  {
+    path: 'register',
+    component: RegisterComponent,
+  },
+  {
+    path: '',
+    redirectTo: 'login',
+    pathMatch: 'full',
   },
 ];
