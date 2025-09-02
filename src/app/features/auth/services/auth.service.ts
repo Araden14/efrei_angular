@@ -13,7 +13,7 @@ export class AuthService {
       password: 'admin123', // En production, ce serait hashé
       role: 'admin',
       createdAt: new Date('2024-01-01'),
-      token: this.generateToken(),
+      token: 'token1',
     },
     {
       id: 2,
@@ -22,7 +22,7 @@ export class AuthService {
       password: 'user123',
       role: 'user',
       createdAt: new Date('2024-01-02'),
-      token: this.generateToken(),
+      token: 'token2',
     },
   ]);
 
@@ -47,6 +47,7 @@ export class AuthService {
     if (user) {
       this.currentUser.set(user);
       console.log('✅ Service: Connexion réussie pour:', user.email);
+      localStorage.setItem('token', user.token);
       return { success: true, user };
     } else {
       console.log('❌ Service: Échec de connexion pour:', credentials.email);
@@ -85,6 +86,7 @@ export class AuthService {
 
     this.users.update((users) => [...users, newUser]);
     this.currentUser.set(newUser);
+    localStorage.setItem('token', newUser.token);
 
     console.log('✅ Service: Inscription réussie pour:', newUser.email);
     return { success: true, user: newUser };
@@ -95,12 +97,17 @@ export class AuthService {
     console.log('🔄 Service: Déconnexion...');
     await this.delay(200);
     this.currentUser.set(null);
+    localStorage.removeItem('token');
     console.log('✅ Service: Déconnexion réussie');
   }
 
   // GET - Vérifier si l'utilisateur est connecté
   isAuthenticated(): boolean {
     return this.currentUser() !== null;
+  }
+
+  setCurrentUser(user: User): void {
+    this.currentUser.set(user);
   }
 
   deleteUser(id: number): void {
@@ -119,6 +126,9 @@ export class AuthService {
 
   getToken(): string {
     return this.currentUser()?.token ?? '';
+  }
+  findUserByToken(token: string): User | null {
+    return this.users().find((user) => user.token === token) ?? null;
   }
   generateToken(): string {
     return Math.random().toString(36).substring(2, 15);
