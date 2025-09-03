@@ -1,243 +1,156 @@
-import { Component, signal, OnInit, inject } from '@angular/core';
+// src/app/features/todos/components/todo-list.component.ts
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Todo } from '../models/todo.model';
 import { TodoService } from '../services/todo.service';
+import { AuthService } from '../../auth/services/auth.service';
+import { PriorityPipe } from '../../../shared/pipes/priority.pipe';
+import { HighlightDirective } from '../../../shared/directives/highlight.directive';
+import { CreateTodoRequest } from '../models/todo.model';
 
 @Component({
   selector: 'app-todo-list',
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  template: `
-    <div class="max-w-4xl mx-auto">
-      <h2 class="text-3xl font-bold mb-6">Mes Todos</h2>
-
-      <!-- Loading state -->
-      @if (loading()) {
-        <div class="text-center py-8">
-          <div
-            class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-          ></div>
-          <p class="mt-2 text-gray-600">Chargement des todos...</p>
-        </div>
-      } @else {
-        <!-- Formulaire d'ajout -->
-        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h3 class="text-xl font-semibold mb-4">Ajouter une tâche</h3>
-          <form (ngSubmit)="addTodo()" #todoForm="ngForm">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <input
-                type="text"
-                [(ngModel)]="newTodo.title"
-                name="title"
-                placeholder="Titre de la tâche"
-                class="border p-2 rounded"
-                required
-              />
-
-              <input
-                type="text"
-                [(ngModel)]="newTodo.description"
-                name="description"
-                placeholder="Description (optionnel)"
-                class="border p-2 rounded"
-              />
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <select [(ngModel)]="newTodo.priority" name="priority" class="border p-2 rounded">
-                <option value="low">Basse priorité</option>
-                <option value="medium">Priorité moyenne</option>
-                <option value="high">Haute priorité</option>
-              </select>
-
-              <button
-                type="submit"
-                [disabled]="!todoForm.form.valid || addingTodo()"
-                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                @if (addingTodo()) {
-                  <span
-                    class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
-                  ></span>
-                  Ajout en cours...
-                } @else {
-                  Ajouter
-                }
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Liste des todos -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <!-- Colonne Todo -->
-          <div class="bg-gray-100 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-4 text-gray-700">
-              À faire ({{ getTodosByStatus('todo').length }})
-            </h3>
-            @for (todo of getTodosByStatus('todo'); track todo.id) {
-              <div class="bg-white p-4 rounded shadow mb-3">
-                <h4 class="font-semibold">{{ todo.title }}</h4>
-                @if (todo.description) {
-                  <p class="text-gray-600 text-sm mt-1">{{ todo.description }}</p>
-                }
-                <div class="flex justify-between items-center mt-2">
-                  <span
-                    class="text-xs px-2 py-1 rounded"
-                    [ngClass]="{
-                      'bg-red-100 text-red-800': todo.priority === 'high',
-                      'bg-yellow-100 text-yellow-800': todo.priority === 'medium',
-                      'bg-green-100 text-green-800': todo.priority === 'low',
-                    }"
-                  >
-                    {{ todo.priority | titlecase }}
-                  </span>
-                  <button
-                    (click)="updateStatus(todo.id, 'in-progress')"
-                    class="text-blue-600 hover:text-blue-800"
-                  >
-                    Commencer
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-
-          <!-- Colonne In Progress -->
-          <div class="bg-gray-100 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-4 text-blue-700">
-              En cours ({{ getTodosByStatus('in-progress').length }})
-            </h3>
-            @for (todo of getTodosByStatus('in-progress'); track todo.id) {
-              <div class="bg-white p-4 rounded shadow mb-3">
-                <h4 class="font-semibold">{{ todo.title }}</h4>
-                @if (todo.description) {
-                  <p class="text-gray-600 text-sm mt-1">{{ todo.description }}</p>
-                }
-                <div class="flex justify-between items-center mt-2">
-                  <span
-                    class="text-xs px-2 py-1 rounded"
-                    [ngClass]="{
-                      'bg-red-100 text-red-800': todo.priority === 'high',
-                      'bg-yellow-100 text-yellow-800': todo.priority === 'medium',
-                      'bg-green-100 text-green-800': todo.priority === 'low',
-                    }"
-                  >
-                    {{ todo.priority | titlecase }}
-                  </span>
-                  <button
-                    (click)="updateStatus(todo.id, 'done')"
-                    class="text-green-600 hover:text-green-800"
-                  >
-                    Terminer
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-
-          <!-- Colonne Done -->
-          <div class="bg-gray-100 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-4 text-green-700">
-              Terminé ({{ getTodosByStatus('done').length }})
-            </h3>
-            @for (todo of getTodosByStatus('done'); track todo.id) {
-              <div class="bg-white p-4 rounded shadow mb-3 opacity-75">
-                <h4 class="font-semibold line-through">{{ todo.title }}</h4>
-                @if (todo.description) {
-                  <p class="text-gray-600 text-sm mt-1 line-through">{{ todo.description }}</p>
-                }
-                <div class="flex justify-between items-center mt-2">
-                  <span class="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
-                    {{ todo.priority | titlecase }}
-                  </span>
-                  <button (click)="deleteTodo(todo.id)" class="text-red-600 hover:text-red-800">
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-            }
-          </div>
-        </div>
-      }
-    </div>
-  `,
-  styles: [],
+  imports: [CommonModule, FormsModule, PriorityPipe, HighlightDirective],
+  templateUrl: './todo-list-component.html',
+  changeDetection: ChangeDetectionStrategy.OnPush, // ⚡ Optimisation
 })
-export class TodoListComponent implements OnInit {
-  todos = signal<Todo[]>([]);
-  loading = signal(true);
-  addingTodo = signal(false);
+export class TodoListComponent {
+  todoService = inject(TodoService);
+  authService = inject(AuthService);
 
-  newTodo = {
+  // Form properties
+  newTodo: CreateTodoRequest = {
     title: '',
     description: '',
-    priority: 'medium' as const,
+    priority: 'medium',
+    assignedTo: undefined,
   };
 
-  private todoService = inject(TodoService);
+  // Loading state
+  private addingTodoSignal = signal(false);
+  addingTodo = this.addingTodoSignal.asReadonly();
 
-  async ngOnInit() {
-    await this.loadTodos();
+  // Action loading states
+  private updatingTodoSignal = signal<number | null>(null);
+  updatingTodo = this.updatingTodoSignal.asReadonly();
+
+  // ⚡ Optimisation : TrackBy pour éviter la recréation des éléments
+  trackByTodoId(id: number): number {
+    this.todoService.getTodos().find((todo) => todo.id === id);
+    return id;
   }
 
-  async loadTodos() {
-    try {
-      this.loading.set(true);
-      const todos = await this.todoService.getAllTodos();
-      this.todos.set(todos);
-    } catch (error) {
-      console.error('Erreur lors du chargement des todos:', error);
-    } finally {
-      this.loading.set(false);
-    }
-  }
-
+  // Add new todo
   async addTodo() {
-    if (this.newTodo.title.trim()) {
-      try {
-        this.addingTodo.set(true);
-        await this.todoService.createTodo({
-          title: this.newTodo.title,
-          description: this.newTodo.description,
-          priority: this.newTodo.priority,
-        });
+    if (!this.authService.isAuthenticated()) {
+      console.log('❌ Vous devez être connecté pour créer un todo');
+      return;
+    }
 
-        // Recharger les todos
-        await this.loadTodos();
+    if (!this.newTodo.title.trim()) {
+      return;
+    }
 
-        // Réinitialiser le formulaire
-        this.newTodo.title = '';
-        this.newTodo.description = '';
-      } catch (error) {
-        console.error("Erreur lors de l'ajout du todo:", error);
-      } finally {
-        this.addingTodo.set(false);
+    this.addingTodoSignal.set(true);
+
+    try {
+      const todoData: CreateTodoRequest = {
+        ...this.newTodo,
+        title: this.newTodo.title.trim(),
+        description: this.newTodo.description?.trim() || '',
+        assignedTo: this.authService.getCurrentUser()?.id,
+      };
+
+      const newTodo = await this.todoService.createTodo(todoData);
+      console.log('✅ Todo créé avec succès:', newTodo);
+
+      // Reset form
+      this.newTodo = {
+        title: '',
+        description: '',
+        priority: 'medium',
+        assignedTo: undefined,
+      };
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du todo:', error);
+    } finally {
+      this.addingTodoSignal.set(false);
+    }
+  }
+
+  // Start a todo (move from 'todo' to 'in-progress')
+  async startTodo(todoId: number) {
+    if (!this.authService.isAuthenticated()) {
+      console.log('❌ Vous devez être connecté pour modifier un todo');
+      return;
+    }
+
+    this.updatingTodoSignal.set(todoId);
+
+    try {
+      const updatedTodo = await this.todoService.updateTodo(todoId, {
+        status: 'in-progress',
+        updatedAt: new Date(),
+      });
+
+      if (updatedTodo) {
+        console.log('✅ Todo démarré avec succès:', updatedTodo);
       }
-    }
-  }
-
-  async updateStatus(id: number, status: Todo['status']) {
-    try {
-      await this.todoService.updateTodo(id, { status });
-      await this.loadTodos();
     } catch (error) {
-      console.error('Erreur lors de la mise à jour:', error);
+      console.error('❌ Erreur lors du démarrage du todo:', error);
+    } finally {
+      this.updatingTodoSignal.set(null);
     }
   }
 
-  async deleteTodo(id: number) {
+  // Complete a todo (move from 'in-progress' to 'done')
+  async completeTodo(todoId: number) {
+    if (!this.authService.isAuthenticated()) {
+      console.log('❌ Vous devez être connecté pour modifier un todo');
+      return;
+    }
+
+    this.updatingTodoSignal.set(todoId);
+
     try {
-      await this.todoService.deleteTodo(id);
-      await this.loadTodos();
+      const updatedTodo = await this.todoService.updateTodo(todoId, {
+        status: 'done',
+        updatedAt: new Date(),
+      });
+
+      if (updatedTodo) {
+        console.log('✅ Todo terminé avec succès:', updatedTodo);
+      }
     } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
+      console.error('❌ Erreur lors de la terminaison du todo:', error);
+    } finally {
+      this.updatingTodoSignal.set(null);
     }
   }
 
-  // Méthodes utilitaires
-  getTodosByStatus(status: Todo['status']): Todo[] {
-    return this.todos().filter((todo) => todo.status === status);
+  // Move todo back to in-progress (from 'done' to 'in-progress')
+  async reopenTodo(todoId: number) {
+    if (!this.authService.isAuthenticated()) {
+      console.log('❌ Vous devez être connecté pour modifier un todo');
+      return;
+    }
+
+    this.updatingTodoSignal.set(todoId);
+
+    try {
+      const updatedTodo = await this.todoService.updateTodo(todoId, {
+        status: 'in-progress',
+        updatedAt: new Date(),
+      });
+
+      if (updatedTodo) {
+        console.log('✅ Todo rouvert avec succès:', updatedTodo);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la réouverture du todo:', error);
+    } finally {
+      this.updatingTodoSignal.set(null);
+    }
   }
 }

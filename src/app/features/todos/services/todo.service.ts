@@ -1,10 +1,15 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, computed, effect, inject } from '@angular/core';
 import { Todo, CreateTodoRequest } from '../models/todo.model';
+import { AuthService } from '../../auth/services/auth.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TodoService {
+  public getTodos() {
+    return this.todos();
+  }
+
   private todos = signal<Todo[]>([
     {
       id: 1,
@@ -37,6 +42,42 @@ export class TodoService {
       updatedAt: new Date('2024-01-14'),
     },
   ]);
+
+  private authService = inject(AuthService);
+
+  constructor() {
+    // Effet qui se déclenche automatiquement
+    effect(() => {
+      const todos = this.todos();
+      console.warn(`Todos mis à jour: ${todos.length} todos`);
+
+      // Sauvegarder dans localStorage
+      localStorage.setItem('todos', JSON.stringify(todos));
+    });
+  }
+
+  // Signal computed - se recalcule automatiquement
+  public completedTodos = computed(() => this.todos().filter((todo) => todo.status === 'done'));
+
+  public pendingTodos = computed(() => this.todos().filter((todo) => todo.status === 'todo'));
+
+  public inProgressTodos = computed(() =>
+    this.todos().filter((todo) => todo.status === 'in-progress'),
+  );
+
+  public highPriorityTodos = computed(() =>
+    this.todos().filter((todo) => todo.priority === 'high'),
+  );
+
+  public todoStats = computed(() => ({
+    total: this.todos().length,
+    completed: this.completedTodos().length,
+    inProgress: this.inProgressTodos().length,
+    pending: this.pendingTodos().length,
+    highPriority: this.highPriorityTodos().length,
+    completionRate:
+      this.todos().length > 0 ? (this.completedTodos().length / this.todos().length) * 100 : 0,
+  }));
 
   // Simuler un délai réseau
   private delay(ms: number): Promise<void> {
@@ -72,7 +113,7 @@ export class TodoService {
       status: 'todo',
       priority: todoData.priority,
       assignedTo: todoData.assignedTo,
-      createdBy: 1, // TODO: Récupérer l'ID de l'utilisateur connecté
+      createdBy: this.authService.getCurrentUser()?.id ?? 1,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -1,0 +1,12 @@
+[
+build
+]
+  publish = "dist/angular-todolist"
+  command = "npm run build"
+
+[[
+redirects
+]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
